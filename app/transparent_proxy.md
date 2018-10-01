@@ -58,7 +58,7 @@ The document has moved
 	},
 	"inboundDetour": [
 	  {
-	    "domainOverride": ["tls","http"],
+//	    "domainOverride": ["tls","http"],
 	    "port": 12345, //开放的端口号
 	    "protocol": "dokodemo-door",
 	    "settings": {
@@ -66,6 +66,18 @@ The document has moved
 	      "followRedirect": true // 这里要为 true 才能接受来自 iptables 的流量
 	    }
 	  },
+	  {  //这个做一个DNS中转代理（DNS映射）解决解析DNS污染，以及解析会被国内DNS服务商或GFW发现的问题
+            "protocol": "dokodemo-door",
+//          "domainOverride": ["tls","http"],
+            "port": 53,
+             "settings": {
+                "address": "8.8.8.8",      
+                "port": 53,
+                "network": "tcp,udp",
+                "followRedirect": false,
+                "timeout": 0
+          }
+        }
 	  ...
 	],
 	"outboundDetour": [
@@ -102,7 +114,7 @@ iptables -t nat -A PREROUTING -p tcp -j V2RAY # 对局域网其他设备进行�
 iptables -t nat -A OUTPUT -p tcp -j V2RAY # 对本机进行透明代理
 ```
 
-   然后设定 UDP 流量透明代理的 iptables 规则，命令如下
+   ~~然后设定 UDP 流量透明代理的 iptables 规则，命令如下(以下命令不设置）~~
 ```
 ip rule add fwmark 1 table 100
 ip route add local 0.0.0.0/0 dev lo table 100
@@ -111,6 +123,7 @@ iptables -t mangle -A V2RAY_MASK -d 192.168.0.0/16 -j RETURN
 iptables -t mangle -A V2RAY_MASK -p udp -j TPROXY --on-port 12345 --tproxy-mark 1
 iptables -t mangle -A PREROUTING -p udp -j V2RAY_MASK
 ```
+******到 DHCP 设定项中将推送到路由器客户端的默认DNS地址设定为网关设备ip，客户将直接向网关查询DNS,并由网关走代理通道转发到8.8.8.8解析。解决DNS污染并隐藏DNS查询（对于国内DNS服务商和GFW）
 
 6. 使用电脑/手机尝试直接访问被墙网站，这时应该是可以访问的（如果不能，你可能得请教大神手把手指导了）。
 
@@ -119,7 +132,7 @@ iptables -t mangle -A PREROUTING -p udp -j V2RAY_MASK
 
 ## 注意事项
 
-* 在上面的设置中，假设访问了国外网站，如 Google 等，网关依然会使用的系统 DNS 进行查询，只不过返回的结果是污染过的，而 V2Ray 提供的 domain override 能够从流量中提取域名信息交由 VPS 解析。也就是说，每次打算访问被墙的网站，DNS 提供商都知道，鉴于国内企业尿性，也许 GFW 也都知道，会不会将这些数据收集喂 AI 也未可知。
+~~* 在上面的设置中，假设访问了国外网站，如 Google 等，网关依然会使用的系统 DNS 进行查询，只不过返回的结果是污染过的，而 V2Ray 提供的 domain override 能够从流量中提取域名信息交由 VPS 解析。也就是说，每次打算访问被墙的网站，DNS 提供商都知道，鉴于国内企业尿性，也许 GFW 也都知道，会不会将这些数据收集喂 AI 也未可知。~~
 * domain override 目前只能从 TLS 和 HTTP 流量中提取域名，如果上网流量有非这两种类型的慎用 domain override 解决 DNS 污染。
 * 由于对 iptables 不熟，我总感觉上面对 UDP 流量的透明代理的设置使用上有点问题，知道为什么的朋友请反馈一下。如果你只是简单的上上网看看视频等，可以只代理 TCP 流量，不设 UDP 透明代理。
 * 喜欢玩网游的朋友可能要失望了，使用 V2Ray 加速游戏效果不是很好。
